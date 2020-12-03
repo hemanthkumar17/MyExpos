@@ -1,0 +1,29 @@
+breakpoint;
+
+alias functionNum R1;
+alias currentPID R2;
+
+if( functionNum == TERMINAL_WRITE ) then
+    //Calling Acquire Terminal
+    multipush(R1, R2, R3);
+    //Function call for Acquire Terminal
+    R1 = ACQUIRE_TERMINAL;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1, R2, R3);
+
+    print R3;
+
+    //Calling Release Terminal
+    multipush(R1, R2, R3);
+    //Function call for Release Terminal
+    R1 = RELEASE_TERMINAL;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1, R2, R3);
+
+endif;
+
+return;

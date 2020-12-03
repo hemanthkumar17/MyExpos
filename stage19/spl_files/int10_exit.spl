@@ -1,0 +1,16 @@
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+[PROCESS_TABLE + currentPID*16 + 4] = TERMINATED;
+
+alias currentPOS R1;
+currentPID = 1;
+while( currentPID < MAX_PROC_NUM ) do
+    currentPOS = 16 * currentPID;
+    if( [PROCESS_TABLE + currentPOS + 4] != TERMINATED ) then
+        call SCHEDULER;
+        print "Scheduling complete";
+    endif;
+    currentPID = currentPID + 1;
+endwhile ;
+halt;
+

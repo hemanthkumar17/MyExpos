@@ -1,0 +1,43 @@
+decl
+    int a[10];
+enddecl
+int main()
+{
+decl
+	int n, i, j, temp;
+enddecl
+begin
+	write("size ");
+	read(n);
+    i = 0;
+    write(" array in ");
+    while( i < n ) do
+        read(a[i]);
+        i = i + 1;
+    endwhile;
+
+    i = 0;
+    j = 0;
+    while(i < n) do
+        j = 1;
+        while(j < (n - i)) do
+            if(a[j-1] > a[j]) then
+                temp = a[j];
+                a[j] = a[j-1];
+                a[j-1] = temp;
+            endif;
+            j = j + 1;
+        endwhile;
+        i = i + 1;
+    endwhile;
+
+    i = 0;
+    write(" array out ");
+    while( i < n ) do
+        write(a[i]);
+        i = i + 1;
+    endwhile;
+
+	return 0;
+end
+}

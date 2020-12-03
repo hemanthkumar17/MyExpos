@@ -1,0 +1,72 @@
+breakpoint;
+
+alias functionNum R1;
+alias currentPID R2;
+
+alias page R3;
+
+if( functionNum == FREE_USER_AREA_PAGE ) then
+    page = [PROCESS_TABLE + 16 * currentPID + 11] ;
+    backup;
+
+    functionNum = RELEASE_PAGE;
+    R2 = page;
+    call MEMORY_MANAGER;
+
+    restore;  
+endif ;
+
+
+if( functionNum == EXIT_PROCESS ) then
+    backup;
+
+    functionNum = FREE_PAGE_TABLE;
+    //pid already in R2
+    call PROCESS_MANAGER;
+
+    functionNum = FREE_USER_AREA_PAGE;
+    //pid already in R2
+    call PROCESS_MANAGER;
+
+    [PROCESS_TABLE + 16 * currentPID + 4] = TERMINATED;
+
+    restore;  
+endif ;
+
+alias counter R4;
+if( functionNum == FREE_PAGE_TABLE ) then
+    backup;
+
+    functionNum = RELEASE_PAGE;
+
+    page = PAGE_TABLE_BASE + 20 * currentPID;
+    
+    //invalidate library
+    [page + 0] = -1;
+    [page + 1] = "0000";
+    [page + 2] = -1;
+    [page + 3] = "0000";    
+    counter = 2;
+
+    while( counter < 10 ) do
+        //Invalidate the other Page table entries of the process
+        if( [page + 2 * counter] != -1 ) then
+            
+            [page + 2 * counter] = -1;
+            [page + 2 * counter + 1] = "0000";
+
+            backup;
+            functionNum = RELEASE_PAGE;
+            R2 = [page + 2 * counter];
+            call MEMORY_MANAGER;
+            restore;
+
+        endif ;
+        counter = counter + 1;
+    endwhile ;
+
+    restore;  
+endif ;
+
+breakpoint;
+return;

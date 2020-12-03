@@ -1,0 +1,166 @@
+breakpoint;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = INT_EXEC; //Set mode to syscall for exec
+alias userSP R1;
+alias currentPID R2;
+userSP = SP; //Store User Stack pointer for ease of use
+
+//get the calling process' PID
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+//Backup SP and switch to kernel stack
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+//translate the virtual address to physical address and get the fileName
+alias physicalPageNum R3;
+alias offset R4;
+alias fileName R5;
+physicalPageNum = [PTBR + 2 * ((userSP - 4) / 512)];
+offset = (userSP - 4) % 512;
+fileName = [(physicalPageNum * 512) + offset];
+
+//Find where the file data is present in the inode table
+alias block R6;
+block = 0;
+while( block < MAX_FILE_BLOCKS ) do
+    if( [INODE_TABLE + 16 * block] == EXEC ) then
+        if( [INODE_TABLE + 16 * block + 1] ==  fileName ) then
+            break;
+        endif ;
+    endif ;
+    block = block + 1;
+endwhile ;
+
+//if file is not present, return to the called process
+if( block == MAX_FILE_BLOCKS ) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    physicalPageNum = [PTBR + 2 * ((userSP - 1) / 512)];
+    offset = (userSP - 1) % 512;
+    //set return value to -1
+    [(physicalPageNum * 512) + offset] = -1;
+    SP = userSP;
+    ireturn;
+endif ;
+
+backup;
+//Exit the ongoing process
+R1 = EXIT_PROCESS;
+//R2 already has currentPID
+
+call PROCESS_MANAGER;
+
+restore;
+
+alias userPage R7;
+alias processTableEntry R8;
+
+//Reclaim user page area
+processTableEntry = PROCESS_TABLE + 16 * currentPID;
+userPage = [processTableEntry + 11];
+
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+[MEMORY_FREE_LIST + userPage] = [MEMORY_FREE_LIST + userPage] + 1;
+
+alias counter R9;
+
+//initialise Pre-Process table for the current process
+counter = 0;
+while(counter < 8) do
+    [(userPage + 1) * 512 - 16 + counter * 2] = -1;
+    counter = counter + 1;
+endwhile;
+
+//Reclaim stack
+SP = userPage * 512 - 1;
+
+[processTableEntry + 4] = RUNNING;
+[processTableEntry + 7] = block;
+
+PTBR = PAGE_TABLE_BASE + 20 * currentPID;
+PTLR = 10;
+ //Library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+backup;
+
+//Heap Allocation
+R1 = GET_FREE_PAGE;
+
+call MEMORY_MANAGER;
+
+[PTBR + 4] = R0;
+[PTBR + 5] = "0110";
+
+R1 = GET_FREE_PAGE;
+
+call MEMORY_MANAGER;
+
+[PTBR + 6] = R0;
+[PTBR + 7] = "0110";
+
+//Stack Allocation
+
+R1 = GET_FREE_PAGE;
+
+call MEMORY_MANAGER;
+
+[PTBR + 16] = R0;
+[PTBR + 17] = "0110";
+
+R1 = GET_FREE_PAGE;
+
+call MEMORY_MANAGER;
+
+[PTBR + 18] = R0;
+[PTBR + 19] = "0110";
+
+//Find the codebase size
+alias size R9;
+size = [block + 1] / 512 + 1;
+
+//If file size is > available blocks(4) then exit
+if( size > 4 ) then
+    print "Size error";
+endif;
+
+//For each code block assign a page to it and load it into the memory
+alias counter R10;
+counter = 0;
+while(counter < size) do
+    multipush(R9, R10);
+    R1 = GET_FREE_PAGE;
+
+    call MEMORY_MANAGER;
+    multipop(R9, R10); 
+    
+    [PTBR + 8 + counter * 2] = R0;
+    [PTBR + 9 + counter * 2] = "0100";
+
+    backup;
+
+    R1 = DISK_LOAD;
+    R2 = currentPID;
+    R3 = R0;
+    R4 = [INODE_TABLE + 16 * block + 8 + counter];
+
+    call DEVICE_MANAGER;
+
+    restore;
+
+    // loadi(R0, [INODE_TABLE + 16 * block + 8 + counter]);
+    
+    counter = counter + 1;
+endwhile;
+
+restore;
+
+//save the entry point into the top of the stack, set stack to user stack and set mode back to user 
+[[PTBR + 16] * 512] = [[PTBR + 8] * 512 + 1]; //Loaded program Entry point
+SP = 8 * 512;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0; //Set mode to user mode
+
+breakpoint;
+ireturn;

@@ -1,0 +1,33 @@
+decl
+    int GCD(int a, int b);
+enddecl
+int GCD(int a, int b)
+{
+    decl 
+        int r;
+    enddecl
+    begin
+        if( a == 0 ) then
+            r = b;
+		else
+			r = GCD( b % a, a);
+        endif;
+        return r;
+    end
+}
+int main()
+{
+decl
+	int temp, num1, num2;
+enddecl
+begin
+	write("num1 ");
+	read(num1);
+	write("num2 ");
+	read(num2);
+	temp = GCD(num1, num2);
+	write("GCD ");
+	write(temp);
+	return 0;
+end
+}

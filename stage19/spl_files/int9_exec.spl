@@ -1,0 +1,154 @@
+breakpoint;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = INT_EXEC; //Set mode to syscall for exec
+
+
+//Backup SP and switch to kernel stack
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+alias userSP R11;
+alias currentPID R12;
+//get the calling process' PID
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+userSP = [PROCESS_TABLE + ( currentPID * 16) + 13]; //Store User Stack pointer for ease of use
+
+
+//translate the virtual address to physical address and get the fileName
+alias fileName R13;
+fileName = [([PTBR + 2 * ((userSP - 4) / 512)] * 512) + (userSP - 4) % 512];
+
+//translate the return address 
+alias phyAddrRetVal R14;
+phyAddrRetVal = [([PTBR + 2 * ((userSP - 1) / 512)] * 512) + (userSP - 1) % 512];
+
+//Find where the file data is present in the inode table
+alias block R15;
+block = 0;
+while( block < MAX_FILE_NUM ) do
+    if( [INODE_TABLE + 16 * block] == EXEC ) then
+        if( [INODE_TABLE + 16 * block + 1] ==  fileName ) then
+            break;
+        endif ;
+    endif ;
+    block = block + 1;
+endwhile ;
+
+//if file is not present, return to the called process
+if( block == MAX_FILE_NUM ) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+    [phyAddrRetVal] = -1;
+    SP = userSP;
+    ireturn;
+endif ;
+
+multipush(R1, R2, R11, R12, R13, R14, R15);
+//Kill the current process
+R1 = EXIT_PROCESS;
+R2 = currentPID;
+
+call PROCESS_MANAGER;
+
+multipop(R1, R2, R11, R12, R13, R14, R15);
+
+
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+[MEMORY_FREE_LIST + [PROCESS_TABLE + 16 * currentPID + 11]] = [MEMORY_FREE_LIST + [PROCESS_TABLE + 16 * currentPID + 11]] + 1;
+
+alias counter R14;
+
+//initialise Pre-Process table for the current process
+counter = 0;
+while(counter < 8) do
+    [([PROCESS_TABLE + 16 * currentPID + 11] + 1) * 512 - 16 + counter * 2] = -1;
+    [([PROCESS_TABLE + 16 * currentPID + 11] + 1) * 512 - 16 + counter * 2 + 1] = -1;
+    counter = counter + 1;
+endwhile;
+
+//Reclaim stack
+SP = [PROCESS_TABLE + 16 * currentPID + 11] * 512 - 1;
+
+[PROCESS_TABLE + 16 * currentPID + 4] = RUNNING;
+[PROCESS_TABLE + 16 * currentPID + 7] = block;
+
+ //Library
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+backup;
+
+//Invalidate heap instead
+[PTBR + 4] = -1;
+[PTBR + 5] = "0000";
+[PTBR + 6] = -1;
+[PTBR + 7] = "0000";
+
+
+//Stack Allocation
+multipush(R1, R2, R11, R12, R13, R14, R15);
+R1 = GET_FREE_PAGE;
+
+call MEMORY_MANAGER;
+multipop(R1, R2, R11, R12, R13, R14, R15);
+
+[PTBR + 16] = R0;
+[PTBR + 17] = "0110";
+
+multipush(R1, R2, R11, R12, R13, R14, R15);
+R1 = GET_FREE_PAGE;
+
+call MEMORY_MANAGER;
+multipop(R1, R2, R11, R12, R13, R14, R15);
+
+[PTBR + 18] = R0;
+[PTBR + 19] = "0110";
+
+while( counter < 10) do
+    [DISK_MAP_TABLE + 10 * currentPID + counter] = -1;
+    counter = counter + 1;
+endwhile;
+
+counter = 0;
+while( (counter < 4)  && (counter <= ([INODE_TABLE + 16 * block + 2 ]/PAGE_SIZE))) do
+    [DISK_MAP_TABLE + 10 * currentPID + 4 + counter] = [INODE_TABLE + 16 * block + 8 + counter];
+    counter = counter + 1;
+endwhile;
+
+//Invalidate Code pages 2,3,4
+[PTBR + 10] = -1;
+[PTBR + 11] = "0000";
+
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+//Load only the first page using get_code_page
+multipush(R1, R2, R11, R12, R13, R14, R15);
+
+R1 = GET_CODE_PAGE;
+R2 = [DISK_MAP_TABLE + 10 * currentPID + 4];
+
+call MEMORY_MANAGER;
+multipop(R1, R2, R11, R12, R13, R14, R15);
+
+[PTBR + 8] = R0;
+[PTBR + 9] = "0100";
+
+
+
+//Initialise disk map table
+
+counter = 0;
+
+
+
+//save the entry point into the top of the stack, set stack to user stack and set mode back to user 
+[[PTBR + 16] * 512] = [[PTBR + 8] * 512 + 1]; //Loaded program Entry point
+SP = 8 * 512;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0; //Set mode to user mode
+
+breakpoint;
+ireturn;

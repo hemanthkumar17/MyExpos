@@ -1,0 +1,114 @@
+breakpoint;
+alias functionNum R1;
+alias page R2;
+
+alias counter R11;
+if( functionNum == GET_FREE_PAGE ) then
+    //increment no of process waiting for a memory
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] + 1;
+
+    //while no of available memory pages is zero, change its state to wait_mem and 
+    //call scheduler so other processes can run
+    while( [SYSTEM_STATUS_TABLE + 2] == 0 ) do
+        [ PROCESS_TABLE + 16 * [SYSTEM_STATUS_TABLE + 1] + 4 ] = WAIT_MEM;
+        multipush(R1, R2);
+        call SCHEDULER;
+        multipop(R1, R2);
+    endwhile ;
+    //get the available mem page, decrement wait_mem and mem_free
+    [SYSTEM_STATUS_TABLE + 3] = [SYSTEM_STATUS_TABLE + 3] - 1;
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+    counter = 0;
+    //find the first available page and store it in counter
+    while(counter < NUM_MEM_PAGES) do
+        if( [MEMORY_FREE_LIST + counter] == 0) then
+            [MEMORY_FREE_LIST + counter] = 1;
+            R0 = counter;
+            return;
+        endif;
+        counter = counter + 1;
+    endwhile;
+
+    //if no page is found, return -1 indicating failure
+    R0 = -1;
+    breakpoint;
+    return;
+endif ;
+
+
+if( functionNum == RELEASE_PAGE ) then
+    //update mem free list
+    [MEMORY_FREE_LIST + page] = [MEMORY_FREE_LIST + page] - 1;
+    //if the page is free, increment mem free
+    [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;
+
+    counter = 0;
+    //as we have a new page now, change every waiting mem process to ready state
+    while( counter < MAX_PROC_NUM) do
+        if ( [PROCESS_TABLE + 16 * counter + 4] == WAIT_MEM) then
+            [PROCESS_TABLE + 16 * counter + 4] = READY;
+        endif ;
+        counter = counter + 1;
+    endwhile;
+    breakpoint;
+    return;
+endif ;
+
+if( functionNum == GET_CODE_PAGE )   then
+    alias blockNo R2;
+    alias pageCounter R12;
+    alias counter R13;
+    alias pageNo R14;
+    counter = 0;
+    //check if some process has already allocated a page for the code block
+    while(counter < MAX_PROC_NUM ) do
+        pageCounter = 4;
+        while(pageCounter < 8) do
+            if( [DISK_MAP_TABLE + counter * 10 + pageCounter] == blockNo) then
+                pageNo = [PAGE_TABLE_BASE + 20 * (counter) + 2 * pageCounter];
+                if( pageNo != -1 ) then
+                    [MEMORY_FREE_LIST + pageNo] = [MEMORY_FREE_LIST + pageNo] + 1;
+                    R0 = pageNo;
+                    breakpoint;
+                    return;
+                endif;
+            endif;
+            pageCounter = pageCounter + 1;
+        endwhile;
+        counter = counter + 1;
+    endwhile;
+
+    //if it does not exist
+    multipush(R1, R2);
+    R1 = GET_FREE_PAGE;
+
+    call MEMORY_MANAGER;
+    
+    multipop(R1, R2);
+
+    multipush(R0, R1, R2);
+    R4 = blockNo;
+    R1 = DISK_LOAD;
+    R2 = [SYSTEM_STATUS_TABLE + 1];
+    R3 = R0;
+
+    call DEVICE_MANAGER;
+    
+    multipop(R0, R1, R2);
+    //R0 already has the page no that has loaded from the GET_FREE_PAGE function call
+    breakpoint;
+    return;
+endif;
+
+if( functionNum == RELEASE_BLOCK ) then
+    alias blockNum R1;
+    alias PID R2;
+
+    [DISK_FREE_LIST + blockNum] = [DISK_FREE_LIST + blockNum] - 1;
+    breakpoint;
+    return;
+endif;
+
+breakpoint;
+return;

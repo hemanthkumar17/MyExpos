@@ -1,0 +1,96 @@
+breakpoint;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = -1;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP; //Set User stack pointer in process table
+//16-19 for kernel use, dont use 0-15 till 'backup' is called
+//Set SP to Kernel Stack
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+backup;
+alias userSP R11;
+alias currentPID R12;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+userSP = [PROCESS_TABLE + currentPID * 16 + 13];
+
+multipush(EIP);
+if( (EC != 0) || (userSP >= (PTLR * 512 - 1)) ) then
+    if( EC == 1 ) then
+        print "Exception";
+        print "II(EC1)";   //Illegal Instruction
+    endif;
+
+    if( EC == 2 ) then
+        print "Exception";
+        print "IMA(EC2)";   //Illegal Memory Access
+    endif;
+
+    if( EC == 3 ) then
+        print "Exception";
+        print "AE(EC3)";    //Arithmetic Exception
+    endif;
+
+    if(userSP >= (PTLR * 512 - 1)) then
+        print "Exception";
+        print "S_Overflow"; //Stack overflow
+    endif;
+
+    
+    R1 = EXIT_PROCESS;
+    // R2 = currentPID;  //already set
+
+    call PROCESS_MANAGER;
+
+    call SCHEDULER;
+    //It will never return here
+endif;
+
+if( EC == 0 ) then
+    if( (EPN / 2) == 1) then    //Heap caused the error
+        
+        multipush(R11, R12);
+        R1 = GET_FREE_PAGE;
+
+        call MEMORY_MANAGER;
+        multipop(R11, R12);
+        
+        [PAGE_TABLE_BASE + currentPID*20 + (2 * EPN) + 0] = R0;
+        [PAGE_TABLE_BASE + currentPID*20 + (2 * EPN) + 1] = "1110";
+
+        multipush(R11, R12);
+        R1 = GET_FREE_PAGE;
+        
+        call MEMORY_MANAGER;
+        multipop(R11, R12);
+
+        [PAGE_TABLE_BASE + currentPID*20 + (2 * EPN) + 2] = R0;
+        [PAGE_TABLE_BASE + currentPID*20 + (2 * EPN) + 3] = "1110";
+        print "Heapfault";
+
+    else    //Code block caused the error
+
+        multipush(R11, R12);
+        R1 = GET_CODE_PAGE;
+        R2 = [DISK_MAP_TABLE + 10 * currentPID + EPN];
+
+        call MEMORY_MANAGER;
+        multipop(R11, R12);
+
+        [PTBR + (2 * EPN) + 0] = R0;
+        [PTBR + (2 * EPN) + 1] = "1100";
+        print "Codefault";
+    endif;
+endif;
+[PROCESS_TABLE + currentPID * 16 + 9] = 0;
+
+multipop(EIP);
+
+
+restore;
+
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+SP = SP + 1;
+
+[([PTBR + 2 * ((SP) / 512)]) * 512 + (SP) % 512] = EIP;
+
+breakpoint;
+ireturn;

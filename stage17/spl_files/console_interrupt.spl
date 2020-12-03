@@ -1,0 +1,34 @@
+breakpoint;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP; //Set User stack pointer in process table
+
+//16-19 for kernel use, dont use 0-15 till 'backup' is called
+//Set SP to Kernel Stack
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+backup;
+
+//get the pid of process that has the terminal
+alias reqPID R0;
+reqPID = [TERMINAL_STATUS_TABLE + 1];
+
+alias processTableEntry R1;
+processTableEntry = PROCESS_TABLE + 16 * reqPID;
+
+//store the read input from the terminal(P0 = port 0) into input buffer
+[processTableEntry + 8] = P0;
+
+backup;
+
+//release terminal for other processes to use
+R1 = RELEASE_TERMINAL;
+R2 = reqPID;
+
+call RESOURCE_MANAGER;
+
+restore;
+
+restore;
+
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+breakpoint;
+ireturn;

@@ -1,0 +1,38 @@
+breakpoint;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP; //Set User stack pointer in process table
+
+//16-19 for kernel use, dont use 0-15 till 'backup' is called
+//Set SP to Kernel Stack
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+//Save user context (Base pointer , user registers, kernel registers)
+backup;
+
+//Write timer interrupt code here
+
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+//Change the state of the current process in its Process Table entry from RUNNING to READY.
+[PROCESS_TABLE + 16 * currentPID + 4] = READY;
+
+alias POS R2;
+// Loop through the process table entires and increment the TICK field of each process.
+currentPID = 0;
+while( currentPID < MAX_PROC_NUM ) do
+    POS = 16 * currentPID;
+    [PROCESS_TABLE + POS] = [PROCESS_TABLE + POS] + 1;
+    currentPID = currentPID + 1;
+endwhile ;
+
+// Context Switch
+
+call SCHEDULER;
+
+//
+restore;
+
+//Restore SP to user stack
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+breakpoint;
+ireturn;

@@ -1,0 +1,65 @@
+//Loading Boot Module
+loadi(54, 67);
+loadi(55, 68);
+
+//Loading idle
+loadi(69, 11);
+loadi(70, 12);
+
+SP = 82 * 512 - 1; //User Page Area of Idle process to use in Boot Module 
+breakpoint;
+
+call BOOT_MODULE;
+
+PTBR = PAGE_TABLE_BASE;
+
+//IDLE
+//LIBRARY
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+//HEAP
+[PTBR + 4] = -1;
+[PTBR + 5] = "0000";
+[PTBR + 6] = -1;
+[PTBR + 7] = "0000";
+
+//CODE
+[PTBR + 8] = 69;
+[PTBR + 9] = "0100";
+[PTBR + 10] = 70;
+[PTBR + 11] = "0100";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+
+//STACK
+[PTBR + 16] = 81;
+[PTBR + 17] = "0110";
+[PTBR + 18] = -1;
+[PTBR + 19] = "0000";
+
+PTLR = 10;
+
+//IDLE PROCESS_TABLE
+alias PID R0;
+alias POS R1;
+PID = 0;
+POS = 16*PID;
+[PROCESS_TABLE + POS + 1] = 0; //Pid of the idle process
+[PROCESS_TABLE + POS + 4] = RUNNING;//State of idle process
+[PROCESS_TABLE + POS + 11] = 82; //User page area
+[PROCESS_TABLE + POS + 12] = 0; //Kernel stack pointer
+[PROCESS_TABLE + POS + 13] = 8*512; //User stack pointer
+[PROCESS_TABLE + POS + 14] = PAGE_TABLE_BASE;
+[PROCESS_TABLE + POS + 15] = 10;
+[81 * 512] = [69 * 512 + 1]; //IDLE Entry point
+
+[SYSTEM_STATUS_TABLE + 1] = 0;
+
+SP = 8 * 512;
+
+ireturn;

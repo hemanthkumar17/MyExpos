@@ -1,0 +1,67 @@
+//load library code
+loadi(63, 13);
+loadi(64, 14);
+
+//load init program
+loadi(65, 7);
+loadi(66, 8);
+
+//load int10 - exit
+loadi(22, 35);
+loadi(23, 36);
+
+//load int7 - console out
+loadi(16, 29);
+loadi(17, 30);
+
+//load exception handler routine
+loadi(2, 15);
+loadi(3, 16);
+
+//load timer
+loadi(4, 17);
+loadi(5, 18);
+
+//INIT
+PTBR = PAGE_TABLE_BASE + 20;
+//LIBRARY
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+//
+//HEAP
+[PTBR + 4] = 78;
+[PTBR + 5] = "0110";
+[PTBR + 6] = 79;
+[PTBR + 7] = "0110";
+//CODE
+[PTBR + 8] = 65;
+[PTBR + 9] = "0100";
+[PTBR + 10] = 66;
+[PTBR + 11] = "0100";
+[PTBR + 12] = -1;
+[PTBR + 13] = "0000";
+[PTBR + 14] = -1;
+[PTBR + 15] = "0000";
+//STACK
+[PTBR + 16] = 76;
+[PTBR + 17] = "0110";
+[PTBR + 18] = 77;
+[PTBR + 19] = "0110";
+
+//INIT PROCESS_TABLE
+alias PID R0;
+alias POS R1;
+PID = 1;
+POS = 16*PID;
+[PROCESS_TABLE + POS + 1] = 1; //Pid of init process
+[PROCESS_TABLE + POS + 4] = CREATED;//State of init process
+[PROCESS_TABLE + POS + 11] = 80; //User page area
+[PROCESS_TABLE + POS + 12] = 0; //Kernel stack pointer
+[PROCESS_TABLE + POS + 13] = 8*512; //User stack pointer
+[PROCESS_TABLE + POS + 14] = PAGE_TABLE_BASE + 20;
+[PROCESS_TABLE + POS + 15] = 10;
+[76 * 512] = [65 * 512 + 1]; //INIT Entry point
+
+return;
