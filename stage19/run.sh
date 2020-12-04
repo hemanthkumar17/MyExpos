@@ -46,7 +46,8 @@ echo INT6 Code Compiling....
 echo INT7 Code Compiling....
 ./spl "../$FOLDER_NAME/spl_files/int7.spl"; #checked
 
-# ./spl "../$FOLDER_NAME/int8_fork.spl"
+echo INT8 Code Compiling....
+./spl "../$FOLDER_NAME/spl_files/int8_fork.spl"
 
 echo INT9 Code Compiling....
 ./spl "../$FOLDER_NAME/spl_files/int9_exec.spl"; #checked
@@ -105,7 +106,7 @@ echo Loading Modules....
 # load int7
 ./xfs-interface load --int=7 "../$FOLDER_NAME/spl_files/int7.xsm"
 # load int8
-# ./xfs-interface load --int=8 "../$FOLDER_NAME/int8_fork.xsm"
+# ./xfs-interface load --int=8 "../$FOLDER_NAME/spl_files/int8_fork.xsm"
 # # load int4
 # ./xfs-interface load --int=4 "../$FOLDER_NAME/int4.xsm"
 # # load int9

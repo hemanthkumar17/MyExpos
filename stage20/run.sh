@@ -1,6 +1,6 @@
 #!/bin/bash
-FOLDER_NAME="stage19"
-ASSIGNMENT="1"
+FOLDER_NAME="stage20"
+ASSIGNMENT="2"
 cd ..
 # Compile expl
 cd ./expl
@@ -9,7 +9,7 @@ echo Idle Program Code Compiling....
 ./expl "../$FOLDER_NAME/expl_files/idleprogram.expl"; # checked
 
 echo Shell-Init Program Code Compiling....
-./expl "../$FOLDER_NAME/expl_files/shell.expl"; # checked
+./expl "../$FOLDER_NAME/expl_files/Assg$ASSIGNMENT/shell.expl"; # checked
 
 # echo Prime Program Code Compiling....
 # ./expl "../$FOLDER_NAME/expl_files/prime.expl"
@@ -18,9 +18,15 @@ echo Shell-Init Program Code Compiling....
 # ./expl "../$FOLDER_NAME/child.expl"; # checked
 # ./expl "../$FOLDER_NAME/parent.expl"; # checked
 
-echo Linked List Program Code Compiling....
+echo Odd Program Code Compiling....
+./expl "../$FOLDER_NAME/expl_files/Assg$ASSIGNMENT/odd.expl"; # checked
 
-./expl "../$FOLDER_NAME/expl_files/linklist.expl"; # checked
+echo Even Program Code Compiling....
+./expl "../$FOLDER_NAME/expl_files/Assg$ASSIGNMENT/even.expl"; # checked
+
+# echo Linked List Program Code Compiling....
+
+# ./expl "../$FOLDER_NAME/expl_files/linklist.expl"; # checked
 # ./expl "../$FOLDER_NAME/mergep.expl"; # checked
 # ./expl "../$FOLDER_NAME/merges.expl"; # checked
 # ./expl "../$FOLDER_NAME/cfile.expl"; # checked
@@ -101,7 +107,7 @@ echo Loading Modules....
 # idle program
 ./xfs-interface load --idle "../$FOLDER_NAME/expl_files/idleprogram.xsm"
 # init program
-./xfs-interface load --init "../$FOLDER_NAME/expl_files/shell.xsm"
+./xfs-interface load --init "../$FOLDER_NAME/expl_files/Assg$ASSIGNMENT/shell.xsm"
 # # load int6
 ./xfs-interface load --int=6 "../$FOLDER_NAME/spl_files/int6.xsm"
 # load int7
@@ -137,8 +143,12 @@ echo Loading Modules....
 # load program
 # ./xfs-interface rm "linklist.xsm"
 
-echo Loading Linked List program....
-./xfs-interface load --exec "../$FOLDER_NAME/expl_files/linklist.xsm"
+echo Loading Odd program....
+./xfs-interface load --exec "../$FOLDER_NAME/expl_files/Assg$ASSIGNMENT/odd.xsm"
+
+echo Loading Even program....
+./xfs-interface load --exec "../$FOLDER_NAME/expl_files/Assg$ASSIGNMENT/even.xsm"
+# ./xfs-interface load --exec "../$FOLDER_NAME/expl_files/linklist.xsm"
 # ./xfs-interface load --exec "../$FOLDER_NAME/testpg3.xsm"
 # ./xfs-interface load --exec "../$FOLDER_NAME/testpg4.xsm"
 # ./xfs-interface load --exec "../$FOLDER_NAME/child.xsm"

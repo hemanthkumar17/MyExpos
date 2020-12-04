@@ -95,8 +95,8 @@ if( functionNum == GET_PCB_ENTRY ) then
         if( [Entry + 4] == TERMINATED ) then
             [Entry + 1] = PID;
             [Entry + 4] = ALLOCATED;
-            PTBR = PAGE_TABLE_BASE + 20 * PID;
-            PTLR = 10;
+            [Entry + 14] = PAGE_TABLE_BASE + PID*20; 
+            [Entry + 15] = 10;
             R0 = PID;
             return;
         endif;
