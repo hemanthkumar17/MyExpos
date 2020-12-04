@@ -1,0 +1,82 @@
+breakpoint;
+alias functionNum R1;
+alias currentPID R2;
+alias word R3;
+alias physicalAddrRetVal R11;
+
+if( functionNum == TERMINAL_WRITE ) then
+    //Calling Acquire Terminal
+    multipush(R1, R2, R3);
+    //Function call for Acquire Terminal
+    R1 = ACQUIRE_TERMINAL;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1, R2, R3);
+
+    print word;
+
+    //Calling Release Terminal
+    multipush(R1, R2, R3);
+    //Function call for Release Terminal
+    R1 = RELEASE_TERMINAL;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1, R2, R3);
+    return;
+endif;
+
+
+if( functionNum == TERMINAL_READ ) then
+    //Calling Acquire Terminal
+    multipush(R1, R2, R3);
+    //Function call for Acquire Terminal
+    R1 = ACQUIRE_TERMINAL;
+
+    call RESOURCE_MANAGER;
+    multipop(R1, R2, R3);
+
+    read;
+
+	[PROCESS_TABLE + currentPID * 16 + 4] = WAIT_TERMINAL;
+
+    //Calling Scheduler
+    multipush(R1, R2, R3);
+    
+    call SCHEDULER;
+    //returns when console interrupt handler gets the input from the terminal and
+    //scheduler schedules the process thats waiting for terminal read
+    multipop(R1, R2, R3);
+
+    physicalAddrRetVal = ([PTBR + 2 * (word)/ 512] * 512) + ((word) % 512);
+    [physicalAddrRetVal] = [PROCESS_TABLE + 16 * currentPID + 8];
+    return;
+
+endif;
+
+if( functionNum == DISK_LOAD ) then
+    alias PageNo R3;
+    alias BlockNo R4;
+    //Calling Acquire Disk
+    multipush(R1, R2, R3, R4);
+    //Function call for Acquire disk
+    R1 = ACQUIRE_DISK;
+
+    call RESOURCE_MANAGER;
+
+    multipop(R1, R2, R3, R4);
+    //Set the disk status page values
+    [DISK_STATUS_TABLE + 1] = 0;    //Load = 0
+    [DISK_STATUS_TABLE + 2] = PageNo;   //Page No
+    [DISK_STATUS_TABLE + 3] = BlockNo;  //Block No
+    load(PageNo, BlockNo);
+    [PROCESS_TABLE + 16 * currentPID + 4] = WAIT_DISK;
+    
+    multipush(R1, R2);
+    call SCHEDULER;
+    multipop(R1, R2);
+    return;
+endif;
+
+return;

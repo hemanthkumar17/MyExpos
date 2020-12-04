@@ -1,0 +1,109 @@
+breakpoint;
+alias functionNum R1;
+alias currentPID R2;
+
+if( functionNum == FREE_USER_AREA_PAGE ) then
+    multipush(R1, R2);
+
+    functionNum = RELEASE_PAGE;
+    R2 = [PROCESS_TABLE + 16 * currentPID + 11];
+    call MEMORY_MANAGER;
+
+    multipop(R1, R2);
+    return;
+endif ;
+
+
+if( functionNum == EXIT_PROCESS ) then
+    multipush(R1, R2);
+
+    functionNum = FREE_PAGE_TABLE;
+    //pid already in R2
+    call PROCESS_MANAGER;
+    multipop(R1, R2);
+
+    multipush(R1, R2);
+    functionNum = FREE_USER_AREA_PAGE;
+    //pid already in R2
+    call PROCESS_MANAGER;
+
+    multipop(R1, R2);  
+    [PROCESS_TABLE + 16 * currentPID + 4] = TERMINATED;
+    return;
+endif ;
+
+
+alias counter R11;
+if( functionNum == FREE_PAGE_TABLE ) then
+    
+    //invalidate library
+    [PAGE_TABLE_BASE + (20 * currentPID) + 0] = -1;
+    [PAGE_TABLE_BASE + (20 * currentPID) + 1] = "0000";
+    [PAGE_TABLE_BASE + (20 * currentPID) + 2] = -1;
+    [PAGE_TABLE_BASE + (20 * currentPID) + 3] = "0000";    
+
+    counter = 2;
+    while( counter < 10 ) do
+        //Invalidate the other Page table entries of the process
+        if( [PAGE_TABLE_BASE + (20 * currentPID) + 2 * counter] != -1 ) then
+            
+            multipush(R1, R2, R11);
+            functionNum = RELEASE_PAGE;
+            R2 = [PAGE_TABLE_BASE + (20 * currentPID) + 2 * counter];
+            call MEMORY_MANAGER;
+            multipop(R1, R2, R11);
+            
+            [PAGE_TABLE_BASE + (20 * currentPID) + 2 * counter + 0] = -1;
+            [PAGE_TABLE_BASE + (20 * currentPID) + 2 * counter + 1] = "0000";
+
+        endif ;
+        counter = counter + 1;
+    endwhile ;
+
+    counter = 2;    //Heap entries of dmt
+    //release the blocks of stack and heap from DISK_MAP_TABLE
+    while(counter < 10) do
+        if([DISK_MAP_TABLE + (10 * currentPID) + counter] != -1) then
+            multipush(R1, R2, R11);
+            R1 = RELEASE_BLOCK;
+            R2 = [DISK_MAP_TABLE + (10 * currentPID) + counter];
+            call MEMORY_MANAGER;
+            multipop(R1, R2, R11);
+        endif;
+        counter = counter + 1;
+        if( counter == 4 ) then
+            counter = 8;    //Go to stack entries of dmt
+        endif;
+    endwhile;
+
+    counter = 2;
+    while( counter < 10 ) do
+        [DISK_MAP_TABLE + (10 * currentPID) + counter] = -1;
+        counter = counter + 1;
+    endwhile;
+
+    return;  
+endif ;
+
+if( functionNum == GET_PCB_ENTRY ) then
+    
+    alias PID R11;
+    alias Entry R12;
+    PID = 1;
+    while( PID < MAX_PROC_NUM ) do
+        Entry = PROCESS_TABLE + 16 * PID;
+        if( [Entry + 4] == TERMINATED ) then
+            [Entry + 1] = PID;
+            [Entry + 4] = ALLOCATED;
+            PTBR = PAGE_TABLE_BASE + 20 * PID;
+            PTLR = 10;
+            R0 = PID;
+            return;
+        endif;
+        PID = PID + 1;
+    endwhile ;
+    R0 = -1;
+    return;
+endif ;
+
+return;

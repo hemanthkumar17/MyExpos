@@ -1,0 +1,40 @@
+type 
+  node {
+    int data;
+    node next;
+  }
+endtype
+int main() {
+  decl
+    int temp, num, i;
+    node head, cur;
+  enddecl
+
+  begin
+    temp = exposcall("Write", -2, "Entering ");
+    temp = initialize();
+    head = alloc();
+
+    temp = exposcall("Write", -2, "N ");
+    temp = exposcall("Read", -1, num);
+    temp = exposcall("Write", -2, num);
+    i = 0;
+    cur = head;
+    while ( i < num ) do
+        cur.next  =  alloc();
+        cur = cur.next;
+        temp = exposcall("Read", -1, cur.data);
+        i = i+1;
+    endwhile;
+    temp = exposcall("Write", -2, "Numbers are");
+
+    cur = head.next;
+    while ( cur != null ) do
+      temp = exposcall("Write", -2, cur.data);
+      cur = cur.next;
+    endwhile;
+
+    return 0;
+
+  end
+}

@@ -1,0 +1,177 @@
+breakpoint;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = INT_FORK;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP; //Set User stack pointer in process table
+//16-19 for kernel use, dont use 0-15 till 'backup' is called
+//Set SP to Kernel Stack
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+backup;
+multipush(R1);
+
+R1 = GET_PCB_ENTRY;
+call PROCESS_MANAGER;
+
+multipop(R1);
+
+alias parentPageTableEntry R8;
+alias childProcessTableEntry R9;
+alias processTableEntry R10;
+alias userSP R11;
+alias physicalAddrRetVal R12;
+alias childPID R13;
+alias currentPID R14;
+
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+processTableEntry = PROCESS_TABLE + 16 * currentPID;
+parentPageTableEntry = PAGE_TABLE_BASE + 20 * currentPID;
+userSP = [processTableEntry + 13];
+physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512); //Base+offset
+if( R0 == -1 ) then
+    [physicalAddrRetVal] = -1;
+else
+    childPID = R0;
+    //If parent's heap is not allocated, allocate
+    if( [parentPageTableEntry + 4] == -1 || [[parentPageTableEntry] + 6] == -1 ) then
+        multipush(R1, R11, R12, R13, R14);
+        R1 = GET_FREE_PAGE;
+
+        call MEMORY_MANAGER;
+        multipop(R1, R11, R12, R13, R14);
+        
+        [parentPageTableEntry + 4] = R0;
+        [parentPageTableEntry + 5] = "0110";
+
+        multipush(R1, R11, R12, R13, R14);
+        R1 = GET_FREE_PAGE;
+        
+        call MEMORY_MANAGER;
+        multipop(R1, R11, R12, R13, R14);
+
+        [parentPageTableEntry + 6] = R0;
+        [parentPageTableEntry + 7] = "0110";
+    endif;
+
+    //Stack Allocation
+
+    multipush(R1, R11, R12, R13, R14);
+    R1 = GET_FREE_PAGE;
+
+    call MEMORY_MANAGER;
+
+    multipop(R1, R11, R12, R13, R14);
+    
+    [PTBR + 16] = R0;
+    [PTBR + 17] = [parentPageTableEntry + 17];
+    
+    multipush(R1, R11, R12, R13, R14);
+    R1 = GET_FREE_PAGE;
+
+    call MEMORY_MANAGER;
+    
+    multipop(R1, R11, R12, R13, R14);  
+    
+    [PTBR + 18] = R0;
+    [PTBR + 19] = [parentPageTableEntry + 19];
+
+    //User Page Area Allocation
+
+    multipush(R1, R11, R12, R13, R14);
+    R1 = GET_FREE_PAGE;
+
+    call MEMORY_MANAGER;
+    
+    multipop(R1, R11, R12, R13, R14);  
+    
+    childProcessTableEntry = PROCESS_TABLE + 16 * childPID;
+
+    [childProcessTableEntry + 11] = R0;    //User Page Area No
+
+    [childProcessTableEntry + 3] = [processTableEntry + 3];
+    [childProcessTableEntry + 6] = [processTableEntry + 6];
+    [childProcessTableEntry + 7] = [processTableEntry + 7];
+    [childProcessTableEntry + 9] = [processTableEntry + 9];
+    [childProcessTableEntry + 10] = [processTableEntry + 10];
+    [childProcessTableEntry + 13] = [processTableEntry + 13];
+
+    [childProcessTableEntry + 2] = currentPID; //PPID
+    [childProcessTableEntry + 0] = 0;  //Tick
+    [childProcessTableEntry + 4] = CREATED;
+    [childProcessTableEntry + 12] = 0;  //Kernel Stack pointer
+    [childProcessTableEntry + 14] = PTBR;  //PTBR
+    [childProcessTableEntry + 15] = PTLR;  //PTLR
+
+    alias counter R15;
+    //copy Resource table
+    counter = 0;
+    while(counter < 8) do
+        [([childProcessTableEntry + 11] + 1) * 512 - 16 + counter * 2] = [([processTableEntry + 11] + 1) * 512 - 16 + counter * 2];
+        counter = counter + 1;
+    endwhile;
+
+    //copy Disk Map table
+    counter = 0;
+    while( counter < 10 ) do
+        [DISK_MAP_TABLE + 10 * childPID + counter] = [DISK_MAP_TABLE + 10 * currentPID + counter];
+        counter = counter + 1;
+    endwhile;
+
+    //Page table initialization
+    //Library
+    [PTBR + 0] = [parentPageTableEntry + 0];
+    [PTBR + 1] = [parentPageTableEntry + 1];
+    [PTBR + 2] = [parentPageTableEntry + 2];
+    [PTBR + 3] = [parentPageTableEntry + 3];
+
+    //Heap
+    [PTBR + 4] = [parentPageTableEntry + 4];
+    [PTBR + 5] = [parentPageTableEntry + 5];
+    [PTBR + 6] = [parentPageTableEntry + 6];
+    [PTBR + 7] = [parentPageTableEntry + 7];
+
+    //Code
+    
+    [PTBR + 8] = [parentPageTableEntry + 8];
+    [PTBR + 9] = [parentPageTableEntry + 9];
+    [PTBR + 10] = [parentPageTableEntry + 10];
+    [PTBR + 11] = [parentPageTableEntry + 11];
+    [PTBR + 12] = [parentPageTableEntry + 12];
+    [PTBR + 13] = [parentPageTableEntry + 13];
+    [PTBR + 14] = [parentPageTableEntry + 14];
+    [PTBR + 15] = [parentPageTableEntry + 15];
+
+    //Increment Mem_free_list
+    counter = 0;
+    while( counter < 8 ) do
+        [MEMORY_FREE_LIST + [PTBR + 2 * counter]] = [MEMORY_FREE_LIST + [PTBR + 2 * counter]] + 1;
+        counter = counter + 1;
+    endwhile;
+
+    //Set Mem_free_list of stack to 1
+    [MEMORY_FREE_LIST + [PTBR + 2 * (counter + 0)]] = 1;
+    [MEMORY_FREE_LIST + [PTBR + 2 * (counter + 1)]] = 1;
+
+    counter = 8 * 512;
+    while( counter <= userSP ) do
+        [([PTBR + 2 * ((counter) / 512)] * 512) + ((counter) % 512)] = [([parentPageTableEntry + 2 * ((counter) / 512)] * 512) + ((counter) % 512)];
+        counter = counter + 1;
+    endwhile;
+
+    //Push BP to top of child user page area
+    [([childProcessTableEntry + 11]) * 512] = BP;
+
+    //Set parent return value
+    [physicalAddrRetVal] = childPID;
+
+    //Set child return value
+    physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512); //Base+offset
+    [physicalAddrRetVal] = 0;
+
+endif;
+
+[processTableEntry + 9] = 0;
+
+restore;
+SP = userSP;
+ireturn;
