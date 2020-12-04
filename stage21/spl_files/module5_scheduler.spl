@@ -1,0 +1,83 @@
+breakpoint;
+alias currentPID R0;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+
+multipush(BP); //Even tho timer saves, some upcoming modules will require scheduler to save this
+
+//Save the page table entries
+alias PROCESS_TABLE_ENTRY R11;
+PROCESS_TABLE_ENTRY = PROCESS_TABLE + currentPID * 16;
+
+//Save values into process table
+[PROCESS_TABLE_ENTRY + 12] = SP % 512;
+[PROCESS_TABLE_ENTRY + 14] = PTBR;
+[PROCESS_TABLE_ENTRY + 15] = PTLR;
+
+//Find the next process to schedule
+alias PID R12;
+PID = currentPID + 1;
+
+if( PID == MAX_PROC_NUM ) then
+    PID = 1;
+endif ;
+
+alias POS R13;
+while( PID != currentPID ) do
+    POS = 16 * PID;
+    if( [PROCESS_TABLE + POS + 4] == READY  ) then
+        break;
+    endif ;
+    if( [PROCESS_TABLE + POS + 4] == CREATED ) then
+        break;
+    else
+        PID = PID + 1;
+        if( PID == MAX_PROC_NUM ) then
+            PID = 1;
+        endif ;
+    endif ;
+endwhile ;
+
+// //If none found, assign to idle
+// if( PID == currentPID ) then //This will make the only process left to alternate with idle
+//     PID = 0;
+// endif ;
+
+//If none found, assign to idle
+if( PID == currentPID ) then //This will make the only process left to alternate with idle
+    if( [PROCESS_TABLE + 16*currentPID + 4] != READY ) then
+        if( [PROCESS_TABLE + 16*currentPID + 4] != CREATED ) then
+            PID = 0; 
+        else
+            PID = currentPID;
+        endif;
+    else
+        PID = currentPID;
+    endif;
+endif ;
+
+alias NEW_PROCESS_TABLE R13;
+NEW_PROCESS_TABLE = PROCESS_TABLE + PID * 16;
+
+//Set back Kernel SP, PTBR , PTLR
+SP =  [NEW_PROCESS_TABLE + 11] * 512 + [NEW_PROCESS_TABLE + 12] ;
+PTBR = [NEW_PROCESS_TABLE + 14];
+PTLR = [NEW_PROCESS_TABLE + 15];
+
+//Set the new PID in SYSTEM_STATUS_TABLE
+[SYSTEM_STATUS_TABLE + 1] = PID;
+
+//Set the CREATED processes to RUNNING
+
+if([NEW_PROCESS_TABLE + 4] == CREATED) then
+	SP = [NEW_PROCESS_TABLE + 13];
+    BP = [([PROCESS_TABLE + 16 * PID + 11]) * 512];
+	[NEW_PROCESS_TABLE + 4] = RUNNING;
+    [NEW_PROCESS_TABLE + 9] = 0; //Set mode to user mode
+    ireturn;
+endif;
+
+[NEW_PROCESS_TABLE + 4] = RUNNING;
+[NEW_PROCESS_TABLE + 9 ] = 0;
+
+multipop(BP);
+return;

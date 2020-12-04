@@ -1,0 +1,90 @@
+int main()
+{
+decl
+	int temp, num;
+enddecl
+begin
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+	num = 1;
+	while (num <= 2) do
+		temp = exposcall("Write", -2, num);
+		num = num + 2;
+	endwhile;
+	breakpoint;
+
+	return 0;
+end
+}

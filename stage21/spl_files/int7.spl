@@ -1,0 +1,49 @@
+breakpoint;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = INT_WRITE; //Set mode to syscall for console out
+
+//Backup SP and switch to kernel stack
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+alias userSP R11;
+alias currentPID R12;
+currentPID = [SYSTEM_STATUS_TABLE + 1];
+userSP = [PROCESS_TABLE + ( currentPID * 16) + 13]; //Store User Stack pointer for ease of use
+
+//Following code to apply address translation to find ret value address
+alias physicalAddrRetVal R13;
+physicalAddrRetVal = ([PTBR + 2 * ((userSP - 1) / 512)] * 512) + ((userSP - 1) % 512); //Base+offset
+
+//Following code to apply address translation to find address of word to be READ FROM
+alias word R14;
+word = [[PTBR + 2 * ((userSP - 3) / 512)] * 512 + ((userSP - 3) % 512)];
+
+//Following code to apply address translation to find address of word to be READ FROM
+alias fileDescriptor R15;
+fileDescriptor = [[PTBR + 2 * ((userSP - 4) / 512)] * 512 + ((userSP - 4) % 512)];
+
+if (fileDescriptor != -2)
+then
+	[physicalAddrRetVal] = -1;	//set the return value as -1 -> failure
+else
+	//print argument 2
+	
+	//Backup registers
+	multipush(R11, R12, R13, R14, R15);
+
+	R1 = TERMINAL_WRITE;
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	R3 = word;
+
+	call DEVICE_MANAGER;
+
+	//Restore registers
+	multipop(R11, R12, R13, R14, R15);
+
+	[physicalAddrRetVal] = 0;	//set the return value as 0 -> success
+endif;
+
+SP = [PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13]; // reset the stack which may have been used by print statement
+//Reset mode to user mode and return the control
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+ireturn;
